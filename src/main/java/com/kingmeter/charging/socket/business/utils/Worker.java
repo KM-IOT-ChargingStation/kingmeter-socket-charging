@@ -42,9 +42,6 @@ public class Worker extends WorkerTemplate {
     public void doDealWithOffline(SocketChannel channel, String deviceId) {
         if (StringUtil.isNotEmpty(deviceId)) {
             chargingSiteService.offlineNotify(Long.parseLong(deviceId));
-            if (CacheUtil.getInstance().getDeviceResultMap().containsKey(deviceId + "_queryDockInfoFlag")) {
-                CacheUtil.getInstance().getDeviceResultMap().remove(deviceId + "_queryDockInfoFlag");
-            }
         }
     }
 

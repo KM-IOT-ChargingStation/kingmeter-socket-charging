@@ -20,6 +20,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 
@@ -33,6 +34,12 @@ public class LoginStrategy implements RequestStrategy {
 
     @Autowired
     private OTATracker tracker;
+
+    @Value("${kingmeter.default.companyCode}")
+    private String defaultCompanyCode;
+
+    @Value("${kingmeter.default.timezone}")
+    private int defaultTimezone;
 
     @Override
     public void process(RequestBody requestBody, ResponseBody responseBody,
@@ -49,7 +56,13 @@ public class LoginStrategy implements RequestStrategy {
                 loginParamsDto.getMhv());
 
         SocketChannel channel = (SocketChannel) ctx.channel();
-        TokenResult tokenResult = TokenUtils.getInstance().getRandomSiteToken(CacheUtil.getInstance().getTokenAndDeviceIdMap());
+        String oldToken = requestBody.getToken();
+        byte[] oldTokenArray = requestBody.getTokenArray();
+
+        TokenResult tokenResult = TokenUtils.getInstance().getRandomSiteToken(
+                oldToken, oldTokenArray,
+                CacheUtil.getInstance().getTokenAndDeviceIdMap()
+        );
 
         LoginPermissionDto permission = chargingSiteService.getSiteLoginPermission(loginParamsDto,
                 tokenResult, channel);
@@ -57,7 +70,31 @@ public class LoginStrategy implements RequestStrategy {
             ctx.close();
             return;
         }
+
+        int timezone = defaultTimezone;
+        String companyCode = defaultCompanyCode;
+
         LoginResponseDto responseDto = permission.getResponseDto();
+
+        log.warn(new KingMeterMarker("Socket,Login,C001"),
+                "{}|{}|{}|{}", siteId, ctx.channel().id().asLongText(), "0",
+                channel.remoteAddress());
+
+        if (!tokenResult.isReLogin()) {
+            log.info(new KingMeterMarker("Socket,Login,C001"),
+                    "{}|{}|{}|{}", siteId,
+                    loginParamsDto.getPwd(), "1", "");
+
+            responseDto = permission.getResponseDto();
+            companyCode = permission.getCompanyCode();
+            timezone = permission.getTimezone();
+        } else {
+            log.info(new KingMeterMarker("Socket,Login,C001"),
+                    "{}|{}|{}|{}", siteId,
+                    loginParamsDto.getPwd(), "2", "");
+        }
+
+
         responseBody.setDeviceId(siteId);
         responseBody.setTokenArray(tokenResult.getTokenArray());
         responseBody.setFunctionCodeArray(ServerFunctionCodeType.LoginType);
@@ -72,10 +109,10 @@ public class LoginStrategy implements RequestStrategy {
                 responseDto.getSls(), responseDto.getPwd(),
                 responseDto.getUrl(), responseDto.getPot(),
                 responseDto.getKnum(), responseDto.getBnum(),
-                responseDto.getCid(), responseDto.getTim(),
+                Integer.parseInt(companyCode), responseDto.getTim(),
                 HardWareUtils.getInstance()
                         .getLocalTimeByHardWareTimeStamp(
-                                permission.getTimezone(),
+                                timezone,
                                 responseDto.getTim()));
 
 

@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +51,7 @@ public class ChargingSocketApplication {
      *
      * @param restDto
      */
-    public void scanUnlock(ScanUnlockRequestRestDto restDto) {
+    public ScanUnlockResponseRestDto scanUnlock(ScanUnlockRequestRestDto restDto) {
         long siteId = restDto.getSiteId();
         long dockId = restDto.getDockId();
         String userId = restDto.getUserId();
@@ -63,13 +62,16 @@ public class ChargingSocketApplication {
                 ScanUnlockResponseDto(dockId, userId, restDto.getMinbsoc(),
                 HardWareUtils.getInstance().getUtcTimeStampOnDevice(timezone));
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.ScanUnLock,
                 toJSON(response).toString());
 
+        String key = "scan_" + userId + "_" + dockId;
         log.info(new KingMeterMarker("Socket,ScanUnLock,C102"),
                 "{}|{}|{}|{}|{}", siteId, dockId, userId, restDto.getMinbsoc(),
                 HardWareUtils.getInstance().getUtcTimeStampOnDevice(timezone));
+
+        return (ScanUnlockResponseRestDto) socketApplication.waitForPromiseResult(key, channel);
     }
 
     /**
@@ -92,15 +94,13 @@ public class ChargingSocketApplication {
                 userId, responseDto.getTim());
 
         String key = "force_" + userId;
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.ForceUnLock,
                 JSONObject.toJSON(responseDto).toString());
 
         //4,wait for lock response
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("ForceUnlock"), ForceUnLockResponseRestDto.class);
+        return  (ForceUnLockResponseRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
     /**
@@ -114,17 +114,15 @@ public class ChargingSocketApplication {
         QueryDockInfoResponseDto queryDockInfoResponseDto =
                 new QueryDockInfoResponseDto(dockId);
         String key = siteId + "_QueryDockInfo";
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.QueryDockInfo,
                 toJSON(queryDockInfoResponseDto).toString());
 
         log.info(new KingMeterMarker("Socket,QueryDockInfo,C602"),
                 "{}|{}", siteId, dockId);
 
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("dockArray"), QueryDockInfoResponseRestDto.class);
+        return  (QueryDockInfoResponseRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
     /**
@@ -140,16 +138,14 @@ public class ChargingSocketApplication {
                 new DockMalfunctionClearResponseDto(dockId, error);
         //3,send command to lock by socket
         String key = siteId + "_MalfunctionClear";
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.DockMalfunctionClear, JSONObject.toJSON(dto).toString());
 
         log.info(new KingMeterMarker("Socket,MalfunctionClear,CA02"),
                 "{}|{}|{}", siteId, dockId, error);
 
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("MalfunctionClear"), MalfunctionClearResponseRestDto.class);
+        return (MalfunctionClearResponseRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
     /**
@@ -195,17 +191,15 @@ public class ChargingSocketApplication {
 
         //3,send command to lock by socket
         String key = siteId + "_SiteSetting";
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.SiteSetting, JSONObject.toJSON(dto).toString());
 
         log.info(new KingMeterMarker("Socket,SiteSetting,CB02"),
                 "{}|{}|{}|{}|{}|{}", siteId, dataInterval, heartInterval,
                 repeatTime, beep, monitor);
 
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("SiteSetting"), SiteSettingResponseRestDto.class);
+        return (SiteSettingResponseRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
 
@@ -221,16 +215,14 @@ public class ChargingSocketApplication {
 
         //3,send command to lock by socket
         String key = siteId + "_QueryDockBikeInfo";
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.QueryDockBikeInfo, JSONObject.toJSON(dto).toString());
 
         log.info(new KingMeterMarker("Socket,QueryDockBikeInfo,CC02"),
                 "{}|{}", siteId, dto.getKid());
 
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("QueryDockBikeInfo"), QueryDockBikeInfoRequestRestDto.class);
+        return (QueryDockBikeInfoRequestRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
     /**
@@ -246,18 +238,16 @@ public class ChargingSocketApplication {
                 new QueryDockLockStatusResponseDto(dockId,
                         userId);
 
-        String key = siteId + "_QueryDockLockStatus";
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
+        String key = siteId + "_checkDockLockStatus";
 
-        socketApplication.sendSocketMsg(siteId,
+        SocketChannel channel = socketApplication.sendSocketMsg(siteId,
                 ServerFunctionCodeType.CheckDockLockStatus,
                 JSONObject.toJSON(responseDto).toString());
 
         log.info(new KingMeterMarker("Socket,CheckDockLockStatus,C702"),
                 "{}|{}|{}", siteId, dockId, userId);
 
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("DockLockStatus"), QueryDockLockStatusResponseRestDto.class);
+        return (QueryDockLockStatusResponseRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
 
@@ -366,8 +356,7 @@ public class ChargingSocketApplication {
         }
 
         String key = restDto.getSiteId() + "_OTA";
-        CacheUtil.getInstance().getDeviceResultMap().remove(key);
-
+        SocketChannel channel = null;
 
         if (trackerActive) {
             OTACacheUtil otaCacheUtil = OTACacheUtil.getInstance();
@@ -380,20 +369,18 @@ public class ChargingSocketApplication {
             QueryDockBikeInfoResponseDto requestDto =
                     new QueryDockBikeInfoResponseDto(0);
 
-            socketApplication.sendSocketMsg(siteId,
+            channel = socketApplication.sendSocketMsg(siteId,
                     ServerFunctionCodeType.QueryDockBikeInfo,
                     toJSON(requestDto).toString());
 
             tracker.track_log(siteId, OTATrackerStepType.QueryDockBikeInfoRequest_Before,
                     requestDto);
         } else {
-            socketApplication.sendSocketMsg(siteId, ServerFunctionCodeType.OTACommand,
+            channel = socketApplication.sendSocketMsg(siteId, ServerFunctionCodeType.OTACommand,
                     JSON.toJSON(responseDto).toString());
         }
 
-
-        Map<String, String> result = socketApplication.waitForMapResult(key);
-        return JSON.parseObject(result.get("OTAResponse"), OTAResponseRestDto.class);
+        return (OTAResponseRestDto)socketApplication.waitForPromiseResult(key, channel);
     }
 
 

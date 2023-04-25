@@ -26,7 +26,8 @@ public enum ClientFunctionCodeType {
     SiteSetting(0xCB01,SiteSettingStrategy.class),//
     QueryDockBikeInfo(0xCC01,QueryDockBikeInfoStrategy.class),//
     DockDataUpload(0xCD01,DockDataUploadStrategy.class),//
-    OTAResponse(0xCE01,OTAResponseStrategy.class);//ota
+    OTAResponse(0xCE01,OTAResponseStrategy.class),//ota
+    OTAResultUpload(0xCF01, OTAResultUploadStrategy.class);//ota
 
 
 

@@ -32,6 +32,6 @@ public class CheckDockLockStatusStrategy implements RequestStrategy {
                 requestDto.getKid(),requestDto.getBid(),
                 requestDto.getLks(),requestDto.getUid());
 
-        chargingSiteService.queryDockLockStatusNotify(requestDto);
+        chargingSiteService.checkDockLockStatusNotify(requestDto);
     }
 }

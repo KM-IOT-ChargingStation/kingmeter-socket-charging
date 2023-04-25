@@ -22,6 +22,7 @@ import com.kingmeter.utils.MD5Util;
 import com.kingmeter.utils.TokenResult;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.util.concurrent.Promise;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -107,7 +108,6 @@ public class ChargingSiteService {
         CacheUtil.getInstance().getDeviceInfoMap().put(siteId, siteMap);
         CacheUtil.getInstance().dealWithLoginSucceed(String.valueOf(siteId),
                 tokenResult.getToken(), tokenResult.getTokenArray(), channel);
-        CacheUtil.getInstance().getDeviceResultMap().put(siteId + "_queryDockInfoFlag", new HashMap<>());
 
         return new LoginPermissionDto(responseDto, companyCode, timezone);
     }
@@ -132,27 +132,26 @@ public class ChargingSiteService {
 
         log.info(new KingMeterMarker("Socket,ScanUnLock,C101"),
                 "{}|{}|{}|{}|{}|{}|{}|{}",
-                siteId,requestDto.getKid(),
-                requestDto.getBid(),requestDto.getUid(),requestDto.getGbs(),
+                siteId, requestDto.getKid(),
+                requestDto.getBid(), requestDto.getUid(), requestDto.getGbs(),
                 requestDto.getTim(),
                 HardWareUtils.getInstance()
                         .getLocalTimeByHardWareTimeStamp(
                                 Integer.parseInt(siteMap.get("timezone")),
-                                requestDto.getTim()),0);
+                                requestDto.getTim()), 0);
 
 
-        Map<String, String> result = new HashMap<>();
-        result.put("ScanUnlock",
-                JSON.toJSONString(new ScanUnlockResponseRestDto(requestDto.getSid(),
-                        requestDto.getKid(), requestDto.getBid(),
-                        requestDto.getUid(), requestDto.getGbs(),
-                        HardWareUtils.getInstance()
-                                .getLocalTimeStampByHardWareUtcTimeStamp(
-                                        Integer.parseInt(siteMap.get("timezone")),
-                                        requestDto.getTim()))));
-
-        CacheUtil.getInstance().getDeviceResultMap().put(
-                "scan_" + requestDto.getUid(), result);
+        String key = "scan_" + requestDto.getUid() + "_" + requestDto.getKid();
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new ScanUnlockResponseRestDto(siteId,
+                    requestDto.getKid(), requestDto.getBid(),
+                    requestDto.getUid(), requestDto.getGbs(),
+                    HardWareUtils.getInstance()
+                            .getLocalTimeStampByHardWareUtcTimeStamp(
+                                    Integer.parseInt(siteMap.get("timezone")),
+                                    requestDto.getTim())));
+        }
 
         if (requestBusiness) business.dealWithScanUnLock(requestDto);
     }
@@ -173,20 +172,20 @@ public class ChargingSiteService {
                 HardWareUtils.getInstance()
                         .getLocalTimeByHardWareTimeStamp(
                                 Integer.parseInt(siteMap.get("timezone")),
-                                requestDto.getTim()),0);
+                                requestDto.getTim()), 0);
 
-        Map<String, String> result = new HashMap<>();
-        result.put("ForceUnlock",
-                JSON.toJSONString(new ForceUnLockResponseRestDto(requestDto.getSid(),
-                        requestDto.getKid(), requestDto.getBid(),
-                        requestDto.getUid(), requestDto.getGbs(),
-                        HardWareUtils.getInstance()
-                                .getLocalTimeStampByHardWareUtcTimeStamp(
-                                        Integer.parseInt(siteMap.get("timezone")),
-                                        requestDto.getTim()))));
+        String key = "force_" + requestDto.getKid();
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new ForceUnLockResponseRestDto(requestDto.getSid(),
+                    requestDto.getKid(), requestDto.getBid(),
+                    requestDto.getUid(), requestDto.getGbs(),
+                    HardWareUtils.getInstance()
+                            .getLocalTimeStampByHardWareUtcTimeStamp(
+                                    Integer.parseInt(siteMap.get("timezone")),
+                                    requestDto.getTim())));
+        }
 
-        CacheUtil.getInstance().getDeviceResultMap().put(
-                "force_" + requestDto.getUid(), result);
 
         if (requestBusiness) business.forceUnlockNotify(requestDto);
     }
@@ -227,18 +226,12 @@ public class ChargingSiteService {
     }
 
     public void malfunctionClearNotify(MalfunctionClearRequestDto requestDto) {
-        MalfunctionClearResponseRestDto rest =
-                new MalfunctionClearResponseRestDto(
-                        requestDto.getSid(),
-                        requestDto.getKid(),
-                        requestDto.getSls()
-                );
-
-        Map<String, String> result = new HashMap<>();
-        result.put("MalfunctionClear",
-                JSON.toJSONString(rest));
-
-        CacheUtil.getInstance().getDeviceResultMap().put(requestDto.getSid() + "_MalfunctionClear", result);
+        String key = requestDto.getSid() + "_MalfunctionClear";
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new MalfunctionClearResponseRestDto(requestDto.getSid(),
+                    requestDto.getKid(), requestDto.getSls()));
+        }
 
         if (requestBusiness) business.malfunctionClearNotify(requestDto);
     }
@@ -263,20 +256,28 @@ public class ChargingSiteService {
         }
 
         String key = requestDto.getSid() + "_QueryDockBikeInfo";
-
-        QueryDockBikeInfoRequestRestDto restDto =
-                new QueryDockBikeInfoRequestRestDto(requestDto.getSid(), stateForRest);
-
-        Map<String, String> result = new HashMap<>();
-        result.put("QueryDockBikeInfo",
-                JSON.toJSONString(restDto));
-
-        CacheUtil.getInstance().getDeviceResultMap().put(key, result);
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new QueryDockBikeInfoRequestRestDto(requestDto.getSid(),
+                    stateForRest));
+        }
 
         tracker.track_log(requestDto.getSid(), OTATrackerStepType.QueryDockBikeInfoResponse_Before,
                 requestDto);
 
         if (requestBusiness) business.dockBikeInfoNotify(requestDto);
+    }
+
+    public void siteSettingNotify(SiteSettingRequestDto requestDto) {
+        String key = requestDto.getSid() + "_SiteSetting";
+
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new SiteSettingResponseRestDto(requestDto.getSid(),
+                    requestDto.getSls()));
+        }
+
+        if (requestBusiness) business.siteSettingNotify(requestDto);
     }
 
     public void dealWithQueryDockInfo(QueryDockInfoRequestDto requestDto) {
@@ -285,10 +286,10 @@ public class ChargingSiteService {
         }
         long siteId = requestDto.getSid();
         log.info(new KingMeterMarker("Socket,QueryDockInfo,C601"),
-                "{}|{}|{}|{}|{}|{}|{}",siteId,
-                requestDto.getMsv(),requestDto.getMhv(),
-                requestDto.getRsv(),requestDto.getRhv(),
-                JSONObject.toJSONString(requestDto.getState()),0);
+                "{}|{}|{}|{}|{}|{}|{}", siteId,
+                requestDto.getMsv(), requestDto.getMhv(),
+                requestDto.getRsv(), requestDto.getRhv(),
+                JSONObject.toJSONString(requestDto.getState()), 0);
 
         DockStateInfoFromQueryDockInfoVOForRest[] stateForRest =
                 new DockStateInfoFromQueryDockInfoVOForRest[requestDto.getState().length];
@@ -304,17 +305,15 @@ public class ChargingSiteService {
             );
         }
 
-        QueryDockInfoResponseRestDto rest =
-                new QueryDockInfoResponseRestDto(requestDto.getSid(),
-                        requestDto.getMsv(), requestDto.getMhv(),
-                        requestDto.getRsv(), requestDto.getRhv(),
-                        stateForRest);
 
-        Map<String, String> result = new HashMap<>();
-        result.put("dockArray",
-                JSON.toJSONString(rest));
-
-        CacheUtil.getInstance().getDeviceResultMap().put(requestDto.getSid() + "_QueryDockInfo", result);
+        String key = siteId + "_QueryDockInfo";
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new QueryDockInfoResponseRestDto(requestDto.getSid(),
+                    requestDto.getMsv(), requestDto.getMhv(),
+                    requestDto.getRsv(), requestDto.getRhv(),
+                    stateForRest));
+        }
 
         if (requestBusiness) business.dealWithQueryDockInfo(requestDto);
     }
@@ -344,33 +343,23 @@ public class ChargingSiteService {
         if (requestBusiness) business.dealWithSwingCardConfirm(requestDto);
     }
 
-    public void queryDockLockStatusNotify(QueryDockLockStatusRequestDto requestDto) {
-        QueryDockLockStatusResponseRestDto restDto =
-                new QueryDockLockStatusResponseRestDto(
-                        requestDto.getSid(), requestDto.getKid(),
-                        requestDto.getBid(), requestDto.getUid(),
-                        requestDto.getLks()
-                );
+    public void checkDockLockStatusNotify(QueryDockLockStatusRequestDto requestDto) {
 
-        Map<String, String> result = new HashMap<>();
-        result.put("DockLockStatus",
-                JSON.toJSONString(restDto));
+        String key = requestDto.getSid() + "_checkDockLockStatus";
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new QueryDockLockStatusResponseRestDto(
+                    requestDto.getSid(), requestDto.getKid(),
+                    requestDto.getBid(), requestDto.getUid(),
+                    requestDto.getLks()
+            ));
+        }
 
-        CacheUtil.getInstance().getDeviceResultMap().put(requestDto.getSid() + "_QueryDockLockStatus", result);
 
         if (requestBusiness) business.queryDockLockStatusNotify(requestDto);
     }
 
-    public void siteSettingNotify(SiteSettingRequestDto requestDto) {
-        Map<String, String> result = new HashMap<>();
-        result.put("SiteSetting",
-                JSON.toJSONString(new SiteSettingResponseRestDto(requestDto.getSid(),
-                        requestDto.getSls())));
 
-        CacheUtil.getInstance().getDeviceResultMap().put(requestDto.getSid() + "_SiteSetting", result);
-
-        if (requestBusiness) business.siteSettingNotify(requestDto);
-    }
 
     public void offlineNotify(Long deviceId) {
         if (requestBusiness) business.offlineNotify(deviceId);
@@ -381,15 +370,15 @@ public class ChargingSiteService {
     }
 
     public void OTAResponseNotify(OTARequestDto requestDto) {
-        Map<String, String> result = new HashMap<>();
-        result.put("OTAResponse",
-                JSON.toJSONString(new OTAResponseRestDto(requestDto.getSid(),
-                        OTAChargingType.getEnumByValue(requestDto.getParts()).name(),
-                        requestDto.getParts(),
-                        requestDto.getSls())));
 
-        CacheUtil.getInstance().getDeviceResultMap().put(
-                requestDto.getSid() + "_OTA", result);
+        String key = requestDto.getSid() + "_OTA";
+        Promise<Object> promise = CacheUtil.getInstance().getPROMISES().remove(key);
+        if (promise != null) {
+            promise.setSuccess(new OTAResponseRestDto(requestDto.getSid(),
+                    OTAChargingType.getEnumByValue(requestDto.getParts()).name(),
+                    requestDto.getPnum(),
+                    requestDto.getSls()));
+        }
 
         tracker.track_log(requestDto.getSid(), OTATrackerStepType.OTA_Response, requestDto);
 
