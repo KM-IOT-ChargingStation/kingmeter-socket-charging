@@ -50,9 +50,9 @@ public class HeartBeatStrategy implements RequestStrategy {
 
         sendHeartBeatResponse(responseBody, ctx, responseDto);
 
-        log.info(new KingMeterMarker("Socket,HeartBeat,C302"),
-                "{}|{}|{}|{}", siteId, responseDto.getSls(),
-                responseDto.getBnum(), responseDto.getTim());
+//        log.info(new KingMeterMarker("Socket,HeartBeat,C302"),
+//                "{}|{}|{}|{}", siteId, responseDto.getSls(),
+//                responseDto.getBnum(), responseDto.getTim());
 
         chargingSiteService.heartBeatNotify(requestDto, responseBody, ctx);
     }

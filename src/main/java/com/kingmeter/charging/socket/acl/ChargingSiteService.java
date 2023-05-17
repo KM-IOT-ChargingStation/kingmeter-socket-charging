@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -207,7 +208,11 @@ public class ChargingSiteService {
         long siteId = requestDto.getSid();
         DockStateInfoFromHeartBeatVO[] state = requestDto.getState();
         Map<String, String> siteMap = CacheUtil.getInstance().getDeviceInfoMap().get(siteId);
-        siteMap.put("dockArray", JSON.toJSONString(state));
+        if (state != null) {
+            siteMap.put("dockArray", JSON.toJSONString(state));
+        }else {
+            siteMap.put("dockArray", JSON.toJSONString(new ArrayList()));
+        }
 
         siteMap.put("rpow", String.valueOf(requestDto.getRpow()));
 
@@ -358,7 +363,6 @@ public class ChargingSiteService {
 
         if (requestBusiness) business.queryDockLockStatusNotify(requestDto);
     }
-
 
 
     public void offlineNotify(Long deviceId) {
